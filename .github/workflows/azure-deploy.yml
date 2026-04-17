@@ -6,9 +6,8 @@ on:
       - main
 
 env:
-  # CHANGE THESE TWO VARIABLES TO MATCH YOUR NEW APP:
-  DOCKER_IMAGE_NAME: doxantro/hng-data-api # Make sure this matches your Docker Hub username/repo
-  AZURE_CONTAINER_APP_NAME: hng-data-api # This must match the NEW container app you make in Azure
+  # CHANGE THIS VARIABLE TO MATCH YOUR NEW APP:
+  APP_IDENTIFIER: hng-data-api # This must match the NEW container app you make in Azure
 
 jobs:
   build-and-deploy:
@@ -33,8 +32,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          # Uses your new image name
-          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          # Uses your Docker Hub username dynamically!
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -47,8 +46,8 @@ jobs:
         uses: azure/container-apps-deploy-action@v1
         with:
           # Deploys the new image to your new app in the same exact resource group!
-          imageToDeploy: ${{ env.DOCKER_IMAGE_NAME }}:latest
-          containerAppName: ${{ env.AZURE_CONTAINER_APP_NAME }}
+          imageToDeploy: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:latest
+          containerAppName: ${{ env.APP_IDENTIFIER }}
           resourceGroup: ticha-rg-staging
           targetPort: 8080
           ingress: external
