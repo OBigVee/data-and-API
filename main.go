@@ -27,12 +27,15 @@ func main() {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
-			//w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", "application/json")
 			next.ServeHTTP(w, r)
 		})
 	})
 
 	r.Post("/api/profiles", CreateProfileHandler)
+	r.Get("/api/profiles/{id}", GetSingleProfileHandler)
+	r.Get("/api/profiles", ListProfilesHandler)
+	r.Delete("/api/profiles/{id}", DeleteProfileHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

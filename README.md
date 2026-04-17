@@ -13,7 +13,7 @@ This project is a high-performance Go API designed to process and store demograp
 ## 🛠 Tech Stack
 - **Language:** Go (Golang) 1.22+
 - **Router:** [Chi Router](https://github.com/go-chi/chi) (Standard library-compliant routing)
-- **Database:** Azure Database for PostgreSQL
+- **Database:** Neon Serverless PostgreSQL
 - **ID Standard:** UUID v7 (Time-ordered unique identifiers)
 - **Deployment:** Azure App Service
 

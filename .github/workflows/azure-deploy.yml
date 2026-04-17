@@ -1,0 +1,54 @@
+name: Deploy Golang App to Azure
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  # CHANGE THESE TWO VARIABLES TO MATCH YOUR NEW APP:
+  DOCKER_IMAGE_NAME: doxantro/hng-data-api # Make sure this matches your Docker Hub username/repo
+  AZURE_CONTAINER_APP_NAME: hng-data-api # This must match the NEW container app you make in Azure
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        # Uses the exact same secrets you defined yesterday
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # Uses your new image name
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          # Deploys the new image to your new app in the same exact resource group!
+          imageToDeploy: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          containerAppName: ${{ env.AZURE_CONTAINER_APP_NAME }}
+          resourceGroup: ticha-rg-staging
+          targetPort: 8080
+          ingress: external

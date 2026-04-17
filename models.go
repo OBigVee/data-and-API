@@ -33,5 +33,14 @@ type NationalizeResp struct {
 
 
 type AgifyResp struct {
-	Age int `json:"age"`
+	Age *int `json:"age"`
+}
+
+type ProfileListResp struct {
+	ID        string `json:"id" db:"id"`
+	Name      string `json:"name" db:"name"`
+	Gender    string `json:"gender" db:"gender"`
+	Age       int    `json:"age" db:"age"`
+	AgeGroup  string `json:"age_group" db:"age_group"`
+	CountryID string `json:"country_id" db:"country_id"`
 }

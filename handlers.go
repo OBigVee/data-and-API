@@ -22,17 +22,45 @@ func send502(w http.ResponseWriter, api string) {
 }
 
 func CreateProfileHandler(w http.ResponseWriter, r *http.Request) {
-	var input struct{ Name string `json:"name"` }
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.Name == "" {
+	var input map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
-			"status": "error",
+			"status":  "error",
 			"message": "Missing or empty name",
 		})
-		return			
-	} 
+		return
+	}
 
-	name := strings.ToLower(strings.TrimSpace(input.Name))
+	nameIface, ok := input["name"]
+	if !ok || nameIface == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Missing or empty name",
+		})
+		return
+	}
+
+	nameStr, ok := nameIface.(string)
+	if !ok {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Invalid type",
+		})
+		return
+	}
+
+	name := strings.ToLower(strings.TrimSpace(nameStr))
+	if name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Missing or empty name",
+		})
+		return
+	}
 	
 	// Idempotency check - if profile already exists, return it instead of creating a new one
 	var existing Profile
@@ -78,7 +106,7 @@ func CreateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		send502(w, "Genderize")
 		return
 	}
-	if aErr != nil || aData.Age == 0 {
+	if aErr != nil || aData.Age == nil {
 		send502(w, "Agify")
 		return
 	}
@@ -96,11 +124,12 @@ func CreateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ageGroup := "senior"
-	if aData.Age <= 12 {
+	ageValue := *aData.Age
+	if ageValue <= 12 {
 		ageGroup = "child"
-	} else if aData.Age <= 19 {
+	} else if ageValue <= 19 {
 		ageGroup = "teenager"
-	} else if aData.Age <= 59 {
+	} else if ageValue <= 59 {
 		ageGroup = "adult"
 	}
 
@@ -112,7 +141,7 @@ func CreateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		Gender: gData.Gender,
 		GenderProbability: gData.Probability,
 		SampleSize: gData.Count,
-		Age: aData.Age,
+		Age: ageValue,
 		AgeGroup: ageGroup,
 		CountryID: topCountry.CountryID,
 		CountryProbability: topCountry.Probability,
@@ -188,7 +217,7 @@ func ListProfilesHandler(w http.ResponseWriter, r *http.Request) {
 		args = append(args, ageGroup)
 		argCount++
 	}
-	var profiles []Profile
+	var profiles []ProfileListResp
 	err := db.Select(&profiles, query, args...)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
