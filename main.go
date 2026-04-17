@@ -2,15 +2,14 @@ package main
 
 import (
 	"log"
-	"os"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 )
-
 
 var db *sqlx.DB
 
@@ -25,7 +24,6 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -35,7 +33,6 @@ func main() {
 	})
 
 	r.Post("/api/profiles", CreateProfileHandler)
-
 
 	port := os.Getenv("PORT")
 	if port == "" {

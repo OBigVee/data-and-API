@@ -31,3 +31,7 @@ type NationalizeResp struct {
 	} `json:"country"`
 }
 
+
+type AgifyResp struct {
+	Age int `json:"age"`
+}
