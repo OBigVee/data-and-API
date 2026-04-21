@@ -16,7 +16,6 @@ var db *sqlx.DB
 func main() {
 	var err error
 	db, err = sqlx.Connect("pgx", os.Getenv("DATABASE_URL"))
-	//db, err = sqlx.Connect("pgx", "postgresql://neondb_owner:KZJ4Y2vZV9Xa@ep-lingering-poetry-a5643846.us-east-2.aws.neon.tech/neondb?sslmode=require")
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
