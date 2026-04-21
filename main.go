@@ -15,7 +15,10 @@ var db *sqlx.DB
 
 func main() {
 	var err error
-	db, err = sqlx.Connect("pgx", os.Getenv("DATABASE_URL"))
+	//db, err = sqlx.Connect("pgx", os.Getenv("DATABASE_URL"))
+	dsn := os.Getenv("DATABASE_URL")
+	log.Println("Connecting to database...")
+	db, err = sqlx.Connect("pgx", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -35,11 +38,16 @@ func main() {
 		})
 	})
 
-	r.Post("/api/profiles", CreateProfileHandler)
-	r.Get("/api/profiles/{id}", GetSingleProfileHandler)
+	r.Get("/api/profiles/search", SearchProfilesHandler)
+
 	r.Get("/api/profiles", ListProfilesHandler)
+	r.Post("/api/profiles", CreateProfileHandler)
+
+	r.Get("/api/profiles/{id}", GetSingleProfileHandler)
 	r.Delete("/api/profiles/{id}", DeleteProfileHandler)
 
+	
+	
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
