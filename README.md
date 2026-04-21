@@ -1,6 +1,6 @@
-# Data Persistence & API Design
+# Data Persistence & API Design with Intelligent Query Engine
 
-This project is a high-performance Go API designed to process and store demographic profiles. It integrates three external APIs (Genderize, Agify, and Nationalize) to classify users by gender, age, and nationality, storing the results in a persistent PostgreSQL database.
+This project is a high-performance Go API designed to process and store demographic profiles. It integrates three external APIs (Genderize, Agify, and Nationalize) to classify users by gender, age, and nationality, storing the results in a persistent PostgreSQL database and features a custom-built Natural Language Query (NLQ) engine for intuitive data retrieval..
 
 ---
 
@@ -19,40 +19,50 @@ This project is a high-performance Go API designed to process and store demograp
 
 ---
 
-## ✨ Key Features
-- **Concurrent Processing:** Uses Go's goroutines to fetch data from Genderize, Agify, and Nationalize simultaneously. This minimizes response latency by running network requests in parallel.
-- **Idempotency:** The system checks for existing records before calling external APIs. If a profile for a specific name already exists, the system returns the stored data, preventing duplicate API calls and redundant database entries.
-- **Robust Error Handling:** Specifically handles **502 Bad Gateway** scenarios. If an upstream API returns a null gender, count of 0, or empty country data, the system returns the exact required error message without storing invalid data.
-- **CORS Enabled:** Fully configured `Access-Control-Allow-Origin: *` to ensure the grading script and frontend clients can reach the server.
-- **ISO 8601 Timestamps:** All dates are generated and stored in UTC format.
+## ✨ Intelligence & Performance Features
+
+### 🔍 Natural Language Query (NLQ) Engine
+The centerpiece of Stage 2. The `/api/profiles/search` endpoint uses a rule-based parser (Regex & Keyword Mapping) to interpret human queries:
+- **Geography:** Recognizes full country names (e.g., "People from Nigeria") and maps them to ISO codes.
+- **Demographics:** Infers gender from keywords like "men," "women," "males," or "females."
+- **Age Logic:** - Maps "young" to the 16-24 age range.
+  - Recognizes age groups (child, teenager, adult, senior).
+  - Uses regex to parse phrases like "above 40."
+
+### ⚡ Concurrent Processing
+Uses Go's `sync.WaitGroup` to fetch data from three external APIs simultaneously. This ensures that even with three network calls, the response time remains minimal.
+
+### 🔢 Advanced Filtering & Pagination
+The system handles large datasets (2,026+ records) with professional-grade pagination and sorting:
+- **Metadata:** Responses include `total`, `page`, and `limit`.
+- **Sorting:** Support for `age`, `gender_probability`, and `created_at`.
+- **Strict 502 Handling:** Returns a **502 Bad Gateway** if upstream providers fail, ensuring only high-quality data persists.
 
 ---
 
 ## 📡 API Endpoints
 
-### 1. Create/Retrieve Profile
+### 1. Intelligence Search (NLQ)
+**`GET /api/profiles/search?q=young+males+from+Hungary`**
+- **Logic:** Interprets the string `q` and redirects to the filtered list logic.
+
+### 2. Create/Retrieve Profile
 **`POST /api/profiles`**
-- **Request Body:** `{ "name": "ella" }`
-- **Behavior:** - If the name exists, returns the existing profile (`200 OK`).
-  - If the name is new, fetches data from external APIs and creates a new profile (`201 Created`).
+- **Body:** `{ "name": "olamide" }`
+- **Behavior:** Concurrent fetching + UUID v7 generation. Idempotent by name.
 
-### 2. Get Single Profile
-**`GET /api/profiles/{id}`**
-- **Success:** Returns the full demographic data for the provided UUID.
-
-### 3. Get All Profiles (with Filtering)
+### 3. List Profiles (Power Query)
 **`GET /api/profiles`**
-- **Optional Query Parameters:** `gender`, `country_id`, `age_group`.
-- **Logic:** Case-insensitive filtering. Example: `/api/profiles?gender=Male&country_id=NG`
+- **Parameters:** `gender`, `country_id`, `age_group`, `min_age`, `max_age`, `sort_by`, `page`, `limit`.
 
-### 4. Delete Profile
-**`DELETE /api/profiles/{id}`**
-- **Success:** `204 No Content`.
+### 4. Delete/Get Single
+**`GET /api/profiles/{id}`** | **`DELETE /api/profiles/{id}`**
+- Full support for UUID v7 lookups.
 
 ---
 
-## 🗄 Database Schema
-The system uses the following schema for persistence:
+## 🗄 Database Schema (Optimized)
+The schema has been strictly aligned for performance and human-readable search:
 
 ```sql
 CREATE TABLE profiles (
@@ -60,10 +70,10 @@ CREATE TABLE profiles (
     name VARCHAR(255) UNIQUE NOT NULL,
     gender VARCHAR(50),
     gender_probability FLOAT,
-    sample_size INT,
     age INT,
     age_group VARCHAR(50),
     country_id VARCHAR(10),
+    country_name VARCHAR(255), -- newly added for the  Intelligence Engine feature
     country_probability FLOAT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'utc')
 );
