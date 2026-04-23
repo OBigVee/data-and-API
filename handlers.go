@@ -135,10 +135,10 @@ func SearchProfilesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If we could not infer any filters from the query, return an error
-	// if len(interpreted) <= 1 {
-	// 	sendError(w, http.StatusOK, "Could not interpret query")
-	// 	return
-	// }
+	if len(interpreted) <= 1 {
+		sendError(w, http.StatusBadRequest, "Could not interpret query")
+		return
+	}
 
 	// pass the interpreted query to the main list logic
 	r.URL.RawQuery = interpreted.Encode()
@@ -177,7 +177,15 @@ func ListProfilesHandler(w http.ResponseWriter, r *http.Request) {
 	
 	// Sorting
 	sortBy := q.Get("sort_by")
-	if sortBy != "age"	 && sortBy != "gender_probability" { sortBy = "created_at" }
+	if sortBy != "" {
+		if sortBy != "age"	 && sortBy != "gender_probability" && sortBy != "created_at" { 
+			sendError(w, http.StatusBadRequest, "Invalid sort field")
+			return
+		}
+		} else {
+		sortBy = "created_at"
+	}
+
 	order := strings.ToUpper(q.Get("order"))
 	if order != "ASC" { order = "DESC" }
 	query += fmt.Sprintf(" ORDER BY %s %s", sortBy, order)
