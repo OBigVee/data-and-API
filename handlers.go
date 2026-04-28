@@ -201,7 +201,6 @@ func ListProfilesHandler(w http.ResponseWriter, r *http.Request) {
 	// Execute
 	var profiles []Profile
 	if err := db.Select(&profiles, query, args...); err != nil { 
-		//log.Printf("SQL Error: %v", err)
 		sendError(w, http.StatusInternalServerError, "Database error")
 		return
 	}
@@ -209,12 +208,50 @@ func ListProfilesHandler(w http.ResponseWriter, r *http.Request) {
 	var total int
 	db.Get(&total, countQuery, args...)
 
+	// Build pagination links
+	totalPages := total / limit
+	if total%limit != 0 {
+		totalPages++
+	}
+
+	// Reconstruct base path for links
+	basePath := r.URL.Path
+	// Preserve filter/sort params for links
+	linkParams := ""
+	for key, values := range q {
+		if key != "page" && key != "limit" {
+			for _, v := range values {
+				linkParams += fmt.Sprintf("&%s=%s", key, v)
+			}
+		}
+	}
+
+	selfLink := fmt.Sprintf("%s?page=%d&limit=%d%s", basePath, page, limit, linkParams)
+
+	var nextLink *string
+	if page < totalPages {
+		nl := fmt.Sprintf("%s?page=%d&limit=%d%s", basePath, page+1, limit, linkParams)
+		nextLink = &nl
+	}
+
+	var prevLink *string
+	if page > 1 {
+		pl := fmt.Sprintf("%s?page=%d&limit=%d%s", basePath, page-1, limit, linkParams)
+		prevLink = &pl
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ProfileResponse{
-		Status: "success",
-		Page: page,
-		Limit: limit,
-		Total: total,
+		Status:     "success",
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+		Links: PaginationLinks{
+			Self: selfLink,
+			Next: nextLink,
+			Prev: prevLink,
+		},
 		Data: profiles,
 	})
 }

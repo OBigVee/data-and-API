@@ -9,9 +9,6 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Delete migrate.go to prevent 'main redeclared' build error
-RUN rm -f migrate.go
-
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 
