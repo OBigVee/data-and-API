@@ -1,79 +1,74 @@
-# Data Persistence & API Design with Intelligent Query Engine
+# Insighta Labs+ — Profile Intelligence Platform
 
-This project is a high-performance Go API designed to process and store demographic profiles. It integrates three external APIs (Genderize, Agify, and Nationalize) to classify users by gender, age, and nationality, storing the results in a persistent PostgreSQL database and features a custom-built Natural Language Query (NLQ) engine for intuitive data retrieval..
+Insighta Labs+ is a secure, multi-interface platform for discovering and analyzing intelligence profiles. This backend features GitHub OAuth with PKCE, JWT-based authentication, role-based access control, and complete API versioning.
 
----
+## 🏛 System Architecture
 
-## 🚀 Live API URL
-**Base URL:** `https://stage1.doxantro.com`  
+The platform consists of three core components:
+1. **Backend (This Repo)**: A Go API server using Chi Router and SQLx, connected to a Neon PostgreSQL database.
+2. **CLI Tool (`insighta-cli`)**: A global Go/Cobra CLI for terminal access.
+3. **Web Portal (`insighta-web`)**: A vanilla JS/Vite single-page application for visual access.
 
+The backend acts as the single source of truth, enforcing security, rate limiting (10 req/min for auth, 60 req/min for API), and communicating with external enrichment APIs (Genderize, Agify, Nationalize).
 
----
+![System Architecture](system_architecture.png)
 
-## 🛠 Tech Stack
-- **Language:** Go (Golang) 1.22+
-- **Router:** [Chi Router](https://github.com/go-chi/chi) (Standard library-compliant routing)
-- **Database:** Neon Serverless PostgreSQL
-- **ID Standard:** UUID v7 (Time-ordered unique identifiers)
-- **Deployment:** Azure App Service
+## 🔐 Authentication Flow
 
----
+We implemented a robust OAuth 2.0 flow using GitHub, fully supporting PKCE for the CLI:
 
-## ✨ Intelligence & Performance Features
+### Web Portal Flow
+1. User clicks "Continue with GitHub".
+2. Redirected to `/auth/github?client=web`.
+3. Backend redirects to GitHub OAuth.
+4. On callback, backend issues an Access Token (3min) and Refresh Token (5min).
+5. Tokens are set as **HTTP-only, Secure cookies** along with a readable CSRF token.
 
-### 🔍 Natural Language Query (NLQ) Engine
-The centerpiece of Stage 2. The `/api/profiles/search` endpoint uses a rule-based parser (Regex & Keyword Mapping) to interpret human queries:
-- **Geography:** Recognizes full country names (e.g., "People from Nigeria") and maps them to ISO codes.
-- **Demographics:** Infers gender from keywords like "men," "women," "males," or "females."
-- **Age Logic:** - Maps "young" to the 16-24 age range.
-  - Recognizes age groups (child, teenager, adult, senior).
-  - Uses regex to parse phrases like "above 40."
+### CLI Flow (PKCE)
+1. User runs `insighta login`.
+2. CLI generates a local `code_verifier` and derived `code_challenge`.
+3. CLI starts a temporary local server and opens the browser to `/auth/github?client=cli&code_challenge=...`.
+4. On callback, backend exchanges the code securely and redirects to the CLI's local server.
+5. CLI captures the tokens and stores them in `~/.insighta/credentials.json`.
 
-### ⚡ Concurrent Processing
-Uses Go's `sync.WaitGroup` to fetch data from three external APIs simultaneously. This ensures that even with three network calls, the response time remains minimal.
+## 🎟 Token Handling Approach
 
-### 🔢 Advanced Filtering & Pagination
-The system handles large datasets (2,026+ records) with professional-grade pagination and sorting:
-- **Metadata:** Responses include `total`, `page`, and `limit`.
-- **Sorting:** Support for `age`, `gender_probability`, and `created_at`.
-- **Strict 502 Handling:** Returns a **502 Bad Gateway** if upstream providers fail, ensuring only high-quality data persists.
+- **Access Tokens**: Short-lived (3 minutes) JWTs containing the user ID, username, and role. Verified statelessly via HMAC-SHA256 signature.
+- **Refresh Tokens**: Opaque 32-byte strings (5 minutes). Stored as SHA-256 hashes in the database.
+- **Rotation**: Every time a refresh token is used, it is immediately invalidated and a new pair is issued, preventing replay attacks.
+- **Storage**: CLI stores them in a secure JSON file; Web portal uses `HttpOnly` cookies to prevent XSS exfiltration.
 
----
+## 🛡 Role Enforcement Logic
 
-## 📡 API Endpoints
+Access control is handled via the `RequireRole` middleware, intercepting requests after the token is verified.
 
-### 1. Intelligence Search (NLQ)
-**`GET /api/profiles/search?q=young+males+from+Hungary`**
-- **Logic:** Interprets the string `q` and redirects to the filtered list logic.
+- **Admin**: Full read/write access. Can create (`POST /api/profiles`) and delete (`DELETE /api/profiles`) records.
+- **Analyst**: Read-only access. Can list, search, view, and export profiles.
 
-### 2. Create/Retrieve Profile
-**`POST /api/profiles`**
-- **Body:** `{ "name": "olamide" }`
-- **Behavior:** Concurrent fetching + UUID v7 generation. Idempotent by name.
+If an Analyst attempts a write action, the middleware immediately rejects the request with a `403 Forbidden`.
 
-### 3. List Profiles (Power Query)
-**`GET /api/profiles`**
-- **Parameters:** `gender`, `country_id`, `age_group`, `min_age`, `max_age`, `sort_by`, `page`, `limit`.
+## 🧠 Natural Language Parsing Approach
 
-### 4. Delete/Get Single
-**`GET /api/profiles/{id}`** | **`DELETE /api/profiles/{id}`**
-- Full support for UUID v7 lookups.
+The `GET /api/profiles/search?q=...` endpoint uses heuristic-based natural language parsing to interpret conversational queries:
+- **Gender**: Checks for keywords (`male`, `men`, `female`, `women`).
+- **Age Groups**: Maps conversational terms to groups (`child`, `kid`, `teen`, `adolescent`, `adult`, `senior`, `elderly`).
+- **Age Ranges**: Regular expressions extract numerical intents (e.g., `above 25` → `min_age=25`). Special keywords map ranges (`young` → `16-24`).
+- **Country**: Scans the query against a full dictionary of country names using word-boundary regexes to prevent false positives (e.g., matching "US" but ignoring it inside "music").
 
----
+The interpreted parameters are then securely passed to the underlying dynamic SQL filter builder.
 
-## 🗄 Database Schema (Optimized)
-The schema has been strictly aligned for performance and human-readable search:
+## 💻 CLI Usage
 
-```sql
-CREATE TABLE profiles (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    gender VARCHAR(50),
-    gender_probability FLOAT,
-    age INT,
-    age_group VARCHAR(50),
-    country_id VARCHAR(10),
-    country_name VARCHAR(255), -- newly added for the  Intelligence Engine feature
-    country_probability FLOAT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'utc')
-);
+```bash
+# Authentication
+insighta login
+insighta whoami
+insighta logout
+
+# Profile Management
+insighta profiles list --gender female --country NG --page 1 --limit 10
+insighta profiles search "young males from nigeria"
+insighta profiles get <uuid>
+insighta profiles create --name "Harriet Tubman"
+insighta profiles export --format csv
+```
