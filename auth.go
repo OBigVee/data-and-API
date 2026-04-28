@@ -130,11 +130,6 @@ func GitHubLoginHandler(w http.ResponseWriter, r *http.Request) {
 		clientID, redirectURL, state,
 	)
 
-	// Add PKCE if code_challenge provided
-	if codeChallenge != "" {
-		ghURL += fmt.Sprintf("&code_challenge=%s&code_challenge_method=S256", codeChallenge)
-	}
-
 	http.Redirect(w, r, ghURL, http.StatusTemporaryRedirect)
 }
 
