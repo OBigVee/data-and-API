@@ -287,7 +287,7 @@ func RequestLogger(next http.Handler) http.Handler {
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		webPortalURL := os.Getenv("WEB_PORTAL_URL")
+		webPortalURL := strings.TrimRight(os.Getenv("WEB_PORTAL_URL"), "/")
 
 		// Allow the web portal origin and localhost for development
 		allowedOrigins := []string{webPortalURL, "http://localhost:5173", "http://localhost:3000"}
