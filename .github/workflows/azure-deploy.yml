@@ -33,7 +33,7 @@ jobs:
           file: ./Dockerfile
           push: true
           # Uses your Docker Hub username dynamically!
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:${{ github.sha }},${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -46,7 +46,7 @@ jobs:
         uses: azure/container-apps-deploy-action@v1
         with:
           # Deploys the new image to your new app in the same exact resource group!
-          imageToDeploy: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:latest
+          imageToDeploy: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_IDENTIFIER }}:${{ github.sha }}
           containerAppName: ${{ env.APP_IDENTIFIER }}
           resourceGroup: ticha-rg-staging
           targetPort: 8080
