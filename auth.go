@@ -226,56 +226,15 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Web flow: set HTTP-only cookies and redirect to portal
+	// Web flow: redirect to portal with tokens in hash fragment
 	webPortalURL := os.Getenv("WEB_PORTAL_URL")
 	if webPortalURL == "" {
 		webPortalURL = "http://localhost:5173"
 	}
 
-	// Generate CSRF token
-	csrfBytes := make([]byte, 16)
-	rand.Read(csrfBytes)
-	csrfToken := hex.EncodeToString(csrfBytes)
-
-	// Determine if we should use Secure cookies
-	secure := strings.HasPrefix(webPortalURL, "https")
-	sameSite := http.SameSiteLaxMode
-	if secure {
-		sameSite = http.SameSiteNoneMode
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: sameSite,
-		MaxAge:   180, // 3 minutes
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    rawRefresh,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: sameSite,
-		MaxAge:   300, // 5 minutes
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "csrf_token",
-		Value:    csrfToken,
-		Path:     "/",
-		HttpOnly: false, // JS needs to read this
-		Secure:   secure,
-		SameSite: sameSite,
-		MaxAge:   300,
-	})
-
 	webPortalURL = strings.TrimSuffix(webPortalURL, "/")
-	http.Redirect(w, r, webPortalURL+"/#/dashboard", http.StatusTemporaryRedirect)
+	redirectTarget := fmt.Sprintf("%s/#/auth-callback?access_token=%s&refresh_token=%s", webPortalURL, accessToken, rawRefresh)
+	http.Redirect(w, r, redirectTarget, http.StatusTemporaryRedirect)
 }
 
 // ──────────────────────────────────────────────
