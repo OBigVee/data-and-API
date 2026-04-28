@@ -274,7 +274,8 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   300,
 	})
 
-	http.Redirect(w, r, webPortalURL+"/dashboard", http.StatusTemporaryRedirect)
+	webPortalURL = strings.TrimSuffix(webPortalURL, "/")
+	http.Redirect(w, r, webPortalURL+"/#/dashboard", http.StatusTemporaryRedirect)
 }
 
 // ──────────────────────────────────────────────
