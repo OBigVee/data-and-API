@@ -1,74 +1,64 @@
 # Insighta Labs+ — Profile Intelligence Platform
 
-Insighta Labs+ is a secure, multi-interface platform for discovering and analyzing intelligence profiles. This backend features GitHub OAuth with PKCE, JWT-based authentication, role-based access control, and complete API versioning.
+Insighta Labs+ is a secure, multi-interface platform for discovering and analyzing intelligence profiles. This platform was built for **HNGi14 Stage 3** to demonstrate advanced authentication, persistence, and multi-client integration.
+
+### 🔗 Live Links
+- **Live API (Azure)**: [https://stage1.doxantro.com](https://stage1.doxantro.com)
+- **Web Portal (Vercel)**: [https://insighta-web-plum.vercel.app](https://insighta-web-plum.vercel.app)
+- **CLI Repository**: [https://github.com/OBigVee/Insighta-cli](https://github.com/OBigVee/Insighta-cli)
 
 ## 🏛 System Architecture
 
 The platform consists of three core components:
-1. **Backend (This Repo)**: A Go API server using Chi Router and SQLx, connected to a Neon PostgreSQL database.
-2. **CLI Tool (`insighta-cli`)**: A global Go/Cobra CLI for terminal access.
-3. **Web Portal (`insighta-web`)**: A vanilla JS/Vite single-page application for visual access.
+1. **Backend (Go)**: A high-performance API server using Chi, SQLx, and Neon PostgreSQL.
+2. **Web Portal (JS/Vite)**: A premium SPA with real-time analytics and CSV exports.
+3. **CLI Tool (Go/Cobra)**: A terminal-based interface with Docker and Docker Compose support.
 
-The backend acts as the single source of truth, enforcing security, rate limiting (10 req/min for auth, 60 req/min for API), and communicating with external enrichment APIs (Genderize, Agify, Nationalize).
+## 🔐 Authentication & Security
 
-![System Architecture](system_architecture.png)
+We implemented a robust OAuth 2.0 flow using GitHub, designed to bypass modern browser third-party cookie restrictions:
 
-## 🔐 Authentication Flow
+### Unified Auth Flow
+1. **Protocol**: GitHub OAuth2 with PKCE (Proof Key for Code Exchange).
+2. **Token Delivery**: To ensure reliability across cross-origin deployments (Vercel to Azure), tokens are delivered via **URL Hash Fragments** and stored as **Bearer Tokens** in `localStorage`.
+3. **Token Rotation**: We use short-lived Access Tokens (3m) and Refresh Tokens (5m). **Every refresh action rotates the entire token pair**, providing maximum security against replay attacks.
+4. **Stateless vs. Stateful**: Access tokens are verified statelessly (JWT), while Refresh tokens are statefully tracked and hashed in the database for instant revocation support.
 
-We implemented a robust OAuth 2.0 flow using GitHub, fully supporting PKCE for the CLI:
+## 🛡 Role-Based Access Control (RBAC)
 
-### Web Portal Flow
-1. User clicks "Continue with GitHub".
-2. Redirected to `/auth/github?client=web`.
-3. Backend redirects to GitHub OAuth.
-4. On callback, backend issues an Access Token (3min) and Refresh Token (5min).
-5. Tokens are set as **HTTP-only, Secure cookies** along with a readable CSRF token.
+The system enforces two distinct roles via server-side middleware:
 
-### CLI Flow (PKCE)
-1. User runs `insighta login`.
-2. CLI generates a local `code_verifier` and derived `code_challenge`.
-3. CLI starts a temporary local server and opens the browser to `/auth/github?client=cli&code_challenge=...`.
-4. On callback, backend exchanges the code securely and redirects to the CLI's local server.
-5. CLI captures the tokens and stores them in `~/.insighta/credentials.json`.
+- **Analyst (Default)**: Read-only access. Can list, search, view, and export data.
+- **Admin**: Full read/write access. Required for creating (`POST /api/profiles`) or deleting (`DELETE /api/profiles`) records.
 
-## 🎟 Token Handling Approach
+*Role enforcement is handled by the `RequireRole("admin")` middleware on protected routes.*
 
-- **Access Tokens**: Short-lived (3 minutes) JWTs containing the user ID, username, and role. Verified statelessly via HMAC-SHA256 signature.
-- **Refresh Tokens**: Opaque 32-byte strings (5 minutes). Stored as SHA-256 hashes in the database.
-- **Rotation**: Every time a refresh token is used, it is immediately invalidated and a new pair is issued, preventing replay attacks.
-- **Storage**: CLI stores them in a secure JSON file; Web portal uses `HttpOnly` cookies to prevent XSS exfiltration.
+## 🧠 Natural Language Intelligence
 
-## 🛡 Role Enforcement Logic
+The search engine interprets conversational queries into structured SQL filters:
+- **Keyword Inference**: Maps "men", "women", "kids", "elders" to structured categories.
+- **Dynamic Age Logic**: "young" maps to `16-24`, while "above 30" uses Regex extraction.
+- **Country Resolution**: Scans queries against a full ISO-3166 dictionary using word-boundary matching.
 
-Access control is handled via the `RequireRole` middleware, intercepting requests after the token is verified.
+## 💻 Interfaces
 
-- **Admin**: Full read/write access. Can create (`POST /api/profiles`) and delete (`DELETE /api/profiles`) records.
-- **Analyst**: Read-only access. Can list, search, view, and export profiles.
+### Web Portal
+A premium dashboard featuring:
+- Real-time statistics and data visualization.
+- Secure client-side CSV generation using `apiFetch`.
+- **Manual CLI Login**: An integration tool that generates a one-time login command for remote CLI users.
 
-If an Analyst attempts a write action, the middleware immediately rejects the request with a `403 Forbidden`.
+### CLI Tool
+Built for developers and automated workflows:
+- **Commands**: `login`, `whoami`, `profiles list`, `profiles search`, `profiles export`.
+- **Docker Support**: Pre-configured `Dockerfile` and `docker-compose.yml` for zero-install usage.
+- **Remote Mode**: Supports `auth-set` for authenticating in remote/cloud IDEs where browser redirects are blocked.
 
-## 🧠 Natural Language Parsing Approach
+## 🛠 Setup & Environment
+The backend requires the following environment variables:
+- `DATABASE_URL`: Neon PostgreSQL connection string.
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: OAuth credentials.
+- `JWT_SECRET`: For signing session tokens.
+- `WEB_PORTAL_URL`: The production frontend URL for secure redirection.
 
-The `GET /api/profiles/search?q=...` endpoint uses heuristic-based natural language parsing to interpret conversational queries:
-- **Gender**: Checks for keywords (`male`, `men`, `female`, `women`).
-- **Age Groups**: Maps conversational terms to groups (`child`, `kid`, `teen`, `adolescent`, `adult`, `senior`, `elderly`).
-- **Age Ranges**: Regular expressions extract numerical intents (e.g., `above 25` → `min_age=25`). Special keywords map ranges (`young` → `16-24`).
-- **Country**: Scans the query against a full dictionary of country names using word-boundary regexes to prevent false positives (e.g., matching "US" but ignoring it inside "music").
-
-The interpreted parameters are then securely passed to the underlying dynamic SQL filter builder.
-
-## 💻 CLI Usage
-
-```bash
-# Authentication
-insighta login
-insighta whoami
-insighta logout
-
-# Profile Management
-insighta profiles list --gender female --country NG --page 1 --limit 10
-insighta profiles search "young males from nigeria"
-insighta profiles get <uuid>
-insighta profiles create --name "Harriet Tubman"
-insighta profiles export --format csv
-```
+---
