@@ -242,18 +242,21 @@ func RateLimitMiddleware(store *RateLimiterStore, limit int, window time.Duratio
 			if key == "" {
 				key = r.Header.Get("X-Real-IP")
 			}
+			if key == "" {
+				key = r.Header.Get("X-Client-IP")
+			}
 			
 			if key == "" {
-				// Safely strip port using net.SplitHostPort
-				host, _, err := net.SplitHostPort(r.RemoteAddr)
-				if err == nil {
-					key = host
-				} else {
-					key = r.RemoteAddr
-				}
+				key = r.RemoteAddr
 			} else {
 				// Handle multiple IPs (take the first one)
 				key = strings.TrimSpace(strings.Split(key, ",")[0])
+			}
+
+			// Aggressively strip port from whatever key we ended up with
+			host, _, err := net.SplitHostPort(key)
+			if err == nil {
+				key = host
 			}
 
 			if user, ok := r.Context().Value(contextKeyUser).(User); ok {
