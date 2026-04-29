@@ -25,6 +25,7 @@ import (
 
 type OAuthStateEntry struct {
 	CodeChallenge string
+	CodeVerifier  string // For PKCE exchange
 	ClientType    string // "cli" or "web"
 	CLIPort       string // only for CLI
 	CreatedAt     time.Time
@@ -109,6 +110,7 @@ func GitHubLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	cliPort := r.URL.Query().Get("port")
 	codeChallenge := r.URL.Query().Get("code_challenge")
+	codeVerifier := r.URL.Query().Get("code_verifier")
 
 	// Generate state
 	stateBytes := make([]byte, 16)
@@ -119,6 +121,7 @@ func GitHubLoginHandler(w http.ResponseWriter, r *http.Request) {
 	oauthStatesMu.Lock()
 	oauthStates[state] = OAuthStateEntry{
 		CodeChallenge: codeChallenge,
+		CodeVerifier:  codeVerifier,
 		ClientType:    clientType,
 		CLIPort:       cliPort,
 		CreatedAt:     time.Now(),
@@ -185,7 +188,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Real flow: Exchange code for GitHub access token
-		ghAccessToken, errExchange := exchangeCodeForToken(code)
+		ghAccessToken, errExchange := exchangeCodeForToken(code, stateEntry.CodeVerifier)
 		if errExchange != nil {
 			log.Printf("GitHub token exchange error: %v", errExchange)
 			sendError(w, http.StatusInternalServerError, "Failed to exchange code with GitHub")
@@ -461,7 +464,7 @@ func MeHandler(w http.ResponseWriter, r *http.Request) {
 // GitHub API helpers
 // ──────────────────────────────────────────────
 
-func exchangeCodeForToken(code string) (string, error) {
+func exchangeCodeForToken(code string, verifier string) (string, error) {
 	clientID := os.Getenv("GITHUB_CLIENT_ID")
 	clientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
 	redirectURL := os.Getenv("GITHUB_REDIRECT_URL")
@@ -471,6 +474,9 @@ func exchangeCodeForToken(code string) (string, error) {
 		"client_secret": clientSecret,
 		"code":          code,
 		"redirect_uri":  redirectURL,
+	}
+	if verifier != "" {
+		payload["code_verifier"] = verifier
 	}
 
 	reqBody, _ := json.Marshal(payload)
