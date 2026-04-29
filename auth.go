@@ -463,10 +463,11 @@ func MeHandler(w http.ResponseWriter, r *http.Request) {
 func exchangeCodeForToken(code string) (string, error) {
 	clientID := os.Getenv("GITHUB_CLIENT_ID")
 	clientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
+	redirectURL := os.Getenv("GITHUB_REDIRECT_URL")
 
 	reqBody := fmt.Sprintf(
-		`{"client_id":"%s","client_secret":"%s","code":"%s"}`,
-		clientID, clientSecret, code,
+		`{"client_id":"%s","client_secret":"%s","code":"%s","redirect_uri":"%s"}`,
+		clientID, clientSecret, code, redirectURL,
 	)
 
 	req, err := http.NewRequest("POST", "https://github.com/login/oauth/access_token",
