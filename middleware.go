@@ -236,8 +236,15 @@ func (s *RateLimiterStore) Allow(key string, limit int, window time.Duration) bo
 func RateLimitMiddleware(store *RateLimiterStore, limit int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Use user ID if authenticated, otherwise IP
-			key := r.RemoteAddr
+			// Use user ID if authenticated, otherwise client IP
+			key := r.Header.Get("X-Forwarded-For")
+			if key == "" {
+				key = r.RemoteAddr
+			} else {
+				// Handle multiple IPs (take the first one)
+				key = strings.Split(key, ",")[0]
+			}
+
 			if user, ok := r.Context().Value(contextKeyUser).(User); ok {
 				key = user.ID
 			}
