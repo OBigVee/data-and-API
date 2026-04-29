@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -239,10 +240,16 @@ func RateLimitMiddleware(store *RateLimiterStore, limit int, window time.Duratio
 			// Use user ID if authenticated, otherwise client IP
 			key := r.Header.Get("X-Forwarded-For")
 			if key == "" {
-				// Strip port from RemoteAddr (e.g. "1.2.3.4:56789" -> "1.2.3.4")
-				key = r.RemoteAddr
-				if lastColon := strings.LastIndex(key, ":"); lastColon != -1 {
-					key = key[:lastColon]
+				key = r.Header.Get("X-Real-IP")
+			}
+			
+			if key == "" {
+				// Safely strip port using net.SplitHostPort
+				host, _, err := net.SplitHostPort(r.RemoteAddr)
+				if err == nil {
+					key = host
+				} else {
+					key = r.RemoteAddr
 				}
 			} else {
 				// Handle multiple IPs (take the first one)
