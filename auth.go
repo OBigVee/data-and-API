@@ -261,6 +261,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 			"access_token":  accessToken,
 			"refresh_token": rawRefresh,
 			"username":      user.Username,
+			"role":          user.Role,
 		})
 		return
 	}
@@ -475,6 +476,7 @@ func MeHandler(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"data": map[string]interface{}{
 			"id":         user.ID,
+			"github_id":  user.GitHubID,
 			"username":   user.Username,
 			"email":      user.Email,
 			"avatar_url": user.AvatarURL,

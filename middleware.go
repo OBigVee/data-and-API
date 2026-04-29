@@ -81,7 +81,7 @@ func RequireAuth(next http.Handler) http.Handler {
 		// Fetch user from DB to check is_active
 		userID, _ := claims["sub"].(string)
 		var user User
-		err = db.Get(&user, `SELECT * FROM users WHERE id = $1`, userID)
+		err = db.Get(&user, "SELECT * FROM users WHERE id = $1", userID)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			sendError(w, http.StatusUnauthorized, "User not found")
