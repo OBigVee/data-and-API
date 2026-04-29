@@ -43,6 +43,16 @@ func main() {
 	// Global middleware
 	r.Use(RequestLogger)
 	r.Use(CORSMiddleware)
+
+	// Health check endpoints
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "up"})
+	})
+	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "up"})
+	})
 	
 	// Custom error handlers for grader compatibility
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
