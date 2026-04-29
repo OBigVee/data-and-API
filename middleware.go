@@ -239,10 +239,14 @@ func RateLimitMiddleware(store *RateLimiterStore, limit int, window time.Duratio
 			// Use user ID if authenticated, otherwise client IP
 			key := r.Header.Get("X-Forwarded-For")
 			if key == "" {
+				// Strip port from RemoteAddr (e.g. "1.2.3.4:56789" -> "1.2.3.4")
 				key = r.RemoteAddr
+				if lastColon := strings.LastIndex(key, ":"); lastColon != -1 {
+					key = key[:lastColon]
+				}
 			} else {
 				// Handle multiple IPs (take the first one)
-				key = strings.Split(key, ",")[0]
+				key = strings.TrimSpace(strings.Split(key, ",")[0])
 			}
 
 			if user, ok := r.Context().Value(contextKeyUser).(User); ok {
