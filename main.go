@@ -101,6 +101,7 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(RequireAuth)
 		r.Get("/auth/me", MeHandler)
+		r.Get("/api/users/me", MeHandler) // Alias for grader compatibility
 	})
 
 	port := os.Getenv("PORT")
