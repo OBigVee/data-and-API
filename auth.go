@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -124,10 +125,10 @@ func GitHubLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	oauthStatesMu.Unlock()
 
-	// Build GitHub authorize URL
+	// Build GitHub authorize URL with escaped redirect_uri
 	ghURL := fmt.Sprintf(
 		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&state=%s&scope=user:email",
-		clientID, redirectURL, state,
+		clientID, url.QueryEscape(redirectURL), state,
 	)
 
 	// Add PKCE if code_challenge provided (Required by HNG grader)
@@ -465,13 +466,17 @@ func exchangeCodeForToken(code string) (string, error) {
 	clientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
 	redirectURL := os.Getenv("GITHUB_REDIRECT_URL")
 
-	reqBody := fmt.Sprintf(
-		`{"client_id":"%s","client_secret":"%s","code":"%s","redirect_uri":"%s"}`,
-		clientID, clientSecret, code, redirectURL,
-	)
+	payload := map[string]string{
+		"client_id":     clientID,
+		"client_secret": clientSecret,
+		"code":          code,
+		"redirect_uri":  redirectURL,
+	}
+
+	reqBody, _ := json.Marshal(payload)
 
 	req, err := http.NewRequest("POST", "https://github.com/login/oauth/access_token",
-		strings.NewReader(reqBody))
+		strings.NewReader(string(reqBody)))
 	if err != nil {
 		return "", err
 	}
