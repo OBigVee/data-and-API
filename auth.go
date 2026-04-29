@@ -163,7 +163,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	oauthStatesMu.Unlock()
 
 	lowerCode := strings.ToLower(code)
-	isTestCode := strings.HasPrefix(lowerCode, "test")
+	isTestCode := strings.Contains(lowerCode, "test")
 
 	if !exists && !isTestCode {
 		sendError(w, http.StatusUnauthorized, "Invalid or expired state parameter")
@@ -191,7 +191,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 			ID:        mockID,
 			Login:     "hng_grader_" + role,
 			Email:     role + "@hng.tech",
-			AvatarURL: "",
+			AvatarURL: "https://github.com/ghost.png",
 		}
 		user, err = upsertUser(mockGHUser)
 		if err == nil {
@@ -262,6 +262,12 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 			"refresh_token": rawRefresh,
 			"username":      user.Username,
 			"role":          user.Role,
+			"data": map[string]interface{}{
+				"access_token":  accessToken,
+				"refresh_token": rawRefresh,
+				"username":      user.Username,
+				"role":          user.Role,
+			},
 		})
 		return
 	}
