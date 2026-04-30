@@ -50,7 +50,7 @@ func generateAccessToken(user User) (string, error) {
 		"sub":      user.ID,
 		"username": user.Username,
 		"role":     user.Role,
-		"exp":      time.Now().Add(3 * time.Minute).Unix(),
+		"exp":      time.Now().Add(15 * time.Minute).Unix(),
 		"iat":      time.Now().Unix(),
 	}
 
